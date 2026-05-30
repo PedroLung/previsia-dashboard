@@ -1,4 +1,3 @@
-
 export default function Home() {
-    return <div>Previsia</div>;
+  return <div>Previsia</div>;
 }

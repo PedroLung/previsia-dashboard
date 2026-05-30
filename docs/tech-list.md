@@ -2,15 +2,15 @@
 
 ## Stack resumida
 
-| Camada | Tecnologia | Tipo |
-|---|---|---|
-| Framework | Next.js 15 + React 19 | `dependencies` |
-| Linguagem | TypeScript 5 | `devDependencies` |
-| Estilização | Tailwind CSS v4 | `devDependencies` |
+| Camada         | Tecnologia              | Tipo                 |
+| -------------- | ----------------------- | -------------------- |
+| Framework      | Next.js 15 + React 19   | `dependencies`       |
+| Linguagem      | TypeScript 5            | `devDependencies`    |
+| Estilização    | Tailwind CSS v4         | `devDependencies`    |
 | Componentes UI | Shadcn (CLI) + Radix UI | CLI + `dependencies` |
-| Gráficos | Recharts 3 | `dependencies` |
-| Autenticação | next-auth v5 (beta) | `dependencies` |
-| Ícones | lucide-react | `dependencies` |
+| Gráficos       | Recharts 3              | `dependencies`       |
+| Autenticação   | next-auth v5 (beta)     | `dependencies`       |
+| Ícones         | lucide-react            | `dependencies`       |
 
 ---
 
@@ -110,24 +110,24 @@ npx shadcn add button badge table dialog sidebar select tooltip
 
 ## O que ficou de fora (e por quê)
 
-| Lib | Motivo de não usar |
-|---|---|
-| `axios` | `fetch` nativo do Next.js resolve sem dependência extra |
-| `redux` / `zustand` | React Context basta para o escopo deste projeto |
-| `styled-components` / `emotion` | Tailwind já cobre toda a estilização |
-| `chart.js` | Recharts é mais simples e idiomático no React |
-| `prisma` / `drizzle` | O banco de dados é responsabilidade do backend (Túlio) |
+| Lib                             | Motivo de não usar                                      |
+| ------------------------------- | ------------------------------------------------------- |
+| `axios`                         | `fetch` nativo do Next.js resolve sem dependência extra |
+| `redux` / `zustand`             | React Context basta para o escopo deste projeto         |
+| `styled-components` / `emotion` | Tailwind já cobre toda a estilização                    |
+| `chart.js`                      | Recharts é mais simples e idiomático no React           |
+| `prisma` / `drizzle`            | O banco de dados é responsabilidade do backend (Túlio)  |
 
 ---
 
 ## Componentes Shadcn que o projeto vai usar
 
-| Componente | Onde usar |
-|---|---|
-| `button` | Ações gerais, exportação, formulários |
-| `badge` | Níveis de risco (adimplente / baixo / médio / alto) |
-| `table` | Listagem de clientes inadimplentes |
-| `dialog` | Detalhe do cliente, explicabilidade do score |
-| `sidebar` | Navegação principal com controle por papel (RBAC) |
-| `select` | Filtros do dashboard (período, segmento, região) |
-| `tooltip` | Informações extras nos gráficos e KPIs |
+| Componente | Onde usar                                           |
+| ---------- | --------------------------------------------------- |
+| `button`   | Ações gerais, exportação, formulários               |
+| `badge`    | Níveis de risco (adimplente / baixo / médio / alto) |
+| `table`    | Listagem de clientes inadimplentes                  |
+| `dialog`   | Detalhe do cliente, explicabilidade do score        |
+| `sidebar`  | Navegação principal com controle por papel (RBAC)   |
+| `select`   | Filtros do dashboard (período, segmento, região)    |
+| `tooltip`  | Informações extras nos gráficos e KPIs              |

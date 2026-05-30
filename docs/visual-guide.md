@@ -256,4 +256,3 @@ Score Médio da Carteira
       82
    [███████░░]
 ```
-
