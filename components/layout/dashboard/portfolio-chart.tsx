@@ -1,53 +1,31 @@
+// components/layout/dashboard/portfolio-chart.tsx
 "use client";
 
-import useSWR from "swr";
-import { api, type PortfolioKPIs } from "@/lib/api";
+import { usePortfolio, fmtPct } from "@/hooks/use-previsia";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, ResponsiveContainer, Tooltip } from "recharts";
 import { BarChart3 } from "lucide-react";
 
-const fetcher = () => api.getPortfolio();
-const COLORS = ["#BA7517", "#1D9E75", "#E24B4A", "#A78BFA"];
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
+const SLICES = [
+  { key: "taxa_acordo" as const, name: "Acordo", color: "#1D9E75" },
+  { key: "taxa_em_aberto" as const, name: "Em Aberto", color: "#BA7517" },
+  { key: "taxa_insucesso" as const, name: "Insucesso", color: "#E24B4A" },
+];
 
 export function PortfolioChart() {
-  const { data, error, isLoading } = useSWR<PortfolioKPIs>(
-    "portfolio",
-    fetcher,
-    { refreshInterval: 60000 },
-  );
+  const { data, error, isLoading } = usePortfolio();
 
+  // Recharts lê `fill` direto do objeto — sem <Cell>
   const chartData = data
-    ? [
-        {
-          name: "Em Aberto",
-          value: data.contratos_em_aberto,
-          color: COLORS[0],
-        },
-        { name: "Acordos", value: data.contratos_acordo, color: COLORS[1] },
-        {
-          name: "Insucesso",
-          value: data.contratos_insucesso,
-          color: COLORS[2],
-        },
-        {
-          name: "Ajuizados",
-          value: data.contratos_ajuizados,
-          color: COLORS[3],
-        },
-      ]
+    ? SLICES.map((s) => ({
+        name: s.name,
+        value: data[s.key] ?? 0,
+        fill: s.color,
+      }))
     : [];
 
-  const total = chartData.reduce((sum, item) => sum + item.value, 0);
+  const total = chartData.reduce((s, d) => s + d.value, 0);
 
   return (
     <Card className="bg-card border-border">
@@ -64,6 +42,10 @@ export function PortfolioChart() {
           <div className="flex items-center justify-center h-64">
             <Skeleton className="h-48 w-48 rounded-full" />
           </div>
+        ) : total === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Sem dados disponíveis
+          </div>
         ) : (
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="w-full md:w-1/2 h-64">
@@ -77,70 +59,64 @@ export function PortfolioChart() {
                     outerRadius={90}
                     paddingAngle={2}
                     dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                    strokeWidth={0}
+                  />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#111C30",
-                      border: "1px solid #112035",
+                      backgroundColor: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--border))",
                       borderRadius: "8px",
+                      color: "hsl(var(--foreground))",
                     }}
-                    labelStyle={{ color: "#fff" }}
-                    formatter={(value: number) => [
-                      value.toLocaleString("pt-BR"),
-                      "Contratos",
-                    ]}
+                    formatter={
+                      ((value: unknown) => [
+                        fmtPct(Number(value)),
+                        "Taxa",
+                      ]) as any
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
 
             <div className="w-full md:w-1/2 space-y-3">
-              {chartData.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
+              {chartData.map((item) => (
+                <div
+                  key={item.name}
+                  className="flex items-center justify-between"
+                >
                   <div className="flex items-center gap-3">
                     <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: item.color }}
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: item.fill }}
                     />
                     <span className="text-sm text-muted-foreground">
                       {item.name}
                     </span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-foreground">
-                      {item.value.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}
-                      %)
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold text-foreground tabular-nums">
+                    {fmtPct(item.value)}
+                  </span>
                 </div>
               ))}
 
-              <div className="pt-4 mt-4 border-t border-border">
+              <div className="pt-4 mt-4 border-t border-border space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Total de Contratos
+                    Total Contratos
                   </span>
-                  <span className="text-lg font-semibold text-foreground">
-                    {total.toLocaleString("pt-BR")}
+                  <span className="text-lg font-semibold text-foreground tabular-nums">
+                    {(data?.total_contratos ?? 0).toLocaleString("pt-BR")}
                   </span>
                 </div>
-                {data && (
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm text-muted-foreground">
-                      Ticket Médio
-                    </span>
-                    <span className="text-sm font-semibold text-primary">
-                      {formatCurrency(data.ticket_medio)}
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Score Médio
+                  </span>
+                  <span className="text-sm font-semibold text-primary tabular-nums">
+                    {data?.score_risco_medio?.toFixed(1) ?? "—"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

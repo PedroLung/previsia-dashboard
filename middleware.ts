@@ -1,27 +1,31 @@
+// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_ROUTES = ["/", "/login", "/register"];
-
 export function middleware(request: NextRequest) {
+  const token = request.cookies.get("previsia_token")?.value;
   const { pathname } = request.nextUrl;
-  const token =
-    request.cookies.get("authjs.session-token") ||
-    request.cookies.get("next-auth.session-token");
 
-  const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
+  // Rotas públicas
+  const publicRoutes = ["/", "/login", "/register"];
+  const isPublicRoute = publicRoutes.includes(pathname);
 
-  if (!isPublic && !token) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  // Rotas do dashboard protegidas
+  const isDashboardRoute = pathname.startsWith("/dashboard");
+
+  if (isDashboardRoute && !token) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  if (isPublic && token) {
-    return NextResponse.redirect(new URL("/overview", request.url));
+  if (isPublicRoute && token && pathname !== "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/dashboard/:path*", "/login", "/register"],
 };

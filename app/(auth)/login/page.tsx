@@ -1,3 +1,4 @@
+// app/(auth)/login/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -17,9 +18,12 @@ import {
   TrendingUp,
   BarChart2,
   Shield,
+  AlertCircle,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://previsia-api.2ai3ui4gvmwq.us-south.codeengine.appdomain.cloud";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -43,43 +47,65 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await fetch("/api/proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({
+          path: "/auth/login",
+          body: {
+            email: email.trim().toLowerCase(),
+            password,
+          },
+          method: "POST",
+        }),
       });
 
       if (res.status === 401) {
-        toast.error("E-mail ou senha incorretos", {
-          description: "Verifique suas credenciais e tente novamente.",
-          duration: 4000,
+        toast.error("🔒 Acesso negado", {
+          description: "E-mail ou senha incorretos.",
+          duration: 5000,
         });
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        toast.error("Erro ao fazer login", {
-          description: data?.detail ?? "Tente novamente em instantes.",
-          duration: 4000,
+        toast.error("❌ Erro ao fazer login", {
+          description: data?.detail || data?.error || "Tente novamente.",
+          duration: 6000,
         });
         return;
       }
 
       const data = await res.json();
-      localStorage.setItem("previsia_token", data.access_token);
 
-      toast.success("Bem-vindo de volta! 👋", {
-        description: "Redirecionando para seu dashboard...",
-        duration: 3000,
+      if (!data.access_token) {
+        throw new Error("Token não recebido");
+      }
+
+      // ✅ Salva token em cookie HTTP-only via API Route
+      const cookieRes = await fetch("/api/auth/set-cookie", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: data.access_token }),
       });
 
-      // Pequeno delay para o toast aparecer antes do redirect
-      setTimeout(() => router.push("/overview"), 800);
-    } catch {
-      toast.error("Erro de conexão", {
-        description: "Verifique sua internet e tente novamente.",
-        duration: 4000,
+      if (!cookieRes.ok) throw new Error("Erro ao salvar token");
+
+      toast.success("✅ Login realizado!", {
+        description: "Redirecionando...",
+        duration: 2000,
+      });
+
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh();
+      }, 1500);
+    } catch (error: any) {
+      console.error("💥 Erro:", error);
+      toast.error("⚠️ Erro de conexão", {
+        description: error.message || "Tente novamente.",
+        duration: 5000,
       });
     } finally {
       setLoading(false);
@@ -275,12 +301,34 @@ export default function LoginPage() {
 
         {/* Footer */}
         <motion.p
-          className="text-[11px] text-[#1D3A5C] tracking-wider uppercase"
+          className="text-[11px] text-[#1D3A5C] tracking-wider uppercase flex items-center justify-center gap-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
         >
           Projeto acadêmico — Desenvolvido para faculdade · 2026
+          {/* Botão de teste da API - usa o proxy para evitar CORS */}
+          <button
+            onClick={async () => {
+              try {
+                // Usa o proxy em vez de chamar a API diretamente
+                const res = await fetch("/api/proxy?path=/health");
+                const data = await res.json();
+                toast.info("🩺 Status da API", {
+                  description: `Status: ${data.status} | DB: ${data.db}`,
+                  duration: 4000,
+                });
+              } catch (e: any) {
+                toast.error("❌ API offline", {
+                  description: e.message,
+                  duration: 4000,
+                });
+              }
+            }}
+            className="text-[#378ADD] hover:underline ml-2"
+          >
+            [Testar API]
+          </button>
         </motion.p>
       </motion.div>
 

@@ -1,53 +1,56 @@
 // app/(dashboard)/dashboard/risk/page.tsx
 "use client";
 
-import useSWR from "swr";
-import { api, type PortfolioKPIs } from "@/lib/api";
+import {
+  usePortfolio,
+  useAgencies,
+  fmtBRL,
+  fmtPct,
+  fmtNum,
+} from "@/hooks/use-previsia";
 import { DashboardHeader } from "@/components/layout/dashboard/header";
 import { DashboardSidebar } from "@/components/layout/dashboard/sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertTriangle,
-  TrendingUp,
-  Shield,
-  Search,
-  Filter,
-  Download,
-  ArrowUpRight,
-  Info,
-} from "lucide-react";
-
-const fetcher = () => api.getPortfolio();
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
+import { Progress } from "@/components/ui/progress";
+import { AlertTriangle, TrendingUp, Shield, BarChart3 } from "lucide-react";
 
 export default function RiskAnalysisPage() {
   const {
     data: kpis,
-    error,
-    isLoading,
-  } = useSWR<PortfolioKPIs>("portfolio", fetcher, { refreshInterval: 60000 });
+    error: kpisError,
+    isLoading: kpisLoading,
+  } = usePortfolio();
+  const {
+    data: agencies,
+    error: agError,
+    isLoading: agLoading,
+  } = useAgencies();
 
-  // Stats derivados dos KPIs reais
-  const stats = {
-    total_contratos: kpis?.total_contratos || 0,
-    valor_total_inadimplente: kpis?.valor_total_inadimplente || 0,
-    taxa_recuperacao: kpis?.taxa_recuperacao || 0,
-    valor_recuperavel:
-      (kpis?.valor_total_inadimplente || 0) * (kpis?.taxa_recuperacao || 0),
-  };
+  const error = kpisError || agError;
+
+  const riskBreakdown = kpis
+    ? [
+        {
+          label: "Em Aberto",
+          value: kpis.taxa_em_aberto,
+          color: "bg-amber-500",
+          textColor: "text-amber-500",
+        },
+        {
+          label: "Acordo",
+          value: kpis.taxa_acordo,
+          color: "bg-emerald-500",
+          textColor: "text-emerald-500",
+        },
+        {
+          label: "Insucesso",
+          value: kpis.taxa_insucesso,
+          color: "bg-destructive",
+          textColor: "text-destructive",
+        },
+      ]
+    : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,162 +59,176 @@ export default function RiskAnalysisPage() {
         <DashboardSidebar />
         <main className="flex-1 p-6 lg:p-8">
           <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold text-foreground">
-                  Análise de Risco
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  Priorize cobranças com base em IA preditiva
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">
+                Análise de Risco
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Visão consolidada da carteira por status e assessoria
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-destructive text-sm">
+                  Erro: {error.message}
                 </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-primary text-sm mt-2 hover:underline"
+                >
+                  Recarregar
+                </button>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled>
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filtrar
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Download className="w-4 h-4 mr-2" />
-                  Exportar
-                </Button>
-              </div>
-            </div>
+            )}
 
-            {/* Stats Cards - COM DADOS REAIS */}
+            {/* KPIs */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Total de Contratos
-                      </p>
-                      {isLoading ? (
-                        <Skeleton className="h-7 w-20 mt-1" />
-                      ) : (
-                        <p className="text-2xl font-bold text-foreground mt-1">
-                          {stats.total_contratos.toLocaleString("pt-BR")}
+              {[
+                {
+                  label: "Total de Contratos",
+                  value: fmtNum(kpis?.total_contratos),
+                  icon: Shield,
+                  color: "text-primary",
+                  bg: "bg-primary/10",
+                },
+                {
+                  label: "Total Inadimplente",
+                  value: fmtBRL(kpis?.total_inadimplente_brl),
+                  icon: AlertTriangle,
+                  color: "text-amber-500",
+                  bg: "bg-amber-500/10",
+                },
+                {
+                  label: "Taxa de Acordo",
+                  value: fmtPct(kpis?.taxa_acordo),
+                  icon: TrendingUp,
+                  color: "text-emerald-500",
+                  bg: "bg-emerald-500/10",
+                },
+                {
+                  label: "Score Médio de Risco",
+                  value: kpis?.score_risco_medio?.toFixed(1) ?? "—",
+                  icon: BarChart3,
+                  color: "text-primary",
+                  bg: "bg-primary/10",
+                },
+              ].map((item) => (
+                <Card key={item.label}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          {item.label}
                         </p>
-                      )}
+                        {kpisLoading ? (
+                          <Skeleton className="h-7 w-24 mt-1" />
+                        ) : (
+                          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">
+                            {item.value}
+                          </p>
+                        )}
+                      </div>
+                      <div
+                        className={`w-12 h-12 rounded-lg ${item.bg} flex items-center justify-center`}
+                      >
+                        <item.icon className={`w-6 h-6 ${item.color}`} />
+                      </div>
                     </div>
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Shield className="w-6 h-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Valor Inadimplente
-                      </p>
-                      {isLoading ? (
-                        <Skeleton className="h-7 w-24 mt-1" />
-                      ) : (
-                        <p className="text-2xl font-bold text-foreground mt-1">
-                          {formatCurrency(stats.valor_total_inadimplente)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-[#BA7517]/10 flex items-center justify-center">
-                      <TrendingUp className="w-6 h-6 text-[#BA7517]" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Taxa de Recuperação
-                      </p>
-                      {isLoading ? (
-                        <Skeleton className="h-7 w-16 mt-1" />
-                      ) : (
-                        <p className="text-2xl font-bold text-[#1D9E75] mt-1">
-                          {(stats.taxa_recuperacao * 100).toFixed(1)}%
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-[#1D9E75]/10 flex items-center justify-center">
-                      <ArrowUpRight className="w-6 h-6 text-[#1D9E75]" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Valor Recuperável
-                      </p>
-                      {isLoading ? (
-                        <Skeleton className="h-7 w-20 mt-1" />
-                      ) : (
-                        <p className="text-2xl font-bold text-primary mt-1">
-                          {formatCurrency(stats.valor_recuperavel)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Shield className="w-6 h-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
 
-            {/* Search */}
+            {/* Distribuição por status */}
             <Card>
-              <CardContent className="p-4">
-                <div className="flex gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por contrato, cliente..."
-                      className="pl-10"
-                      disabled
-                    />
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Distribuição por Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {kpisLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-8 w-full" />
+                    ))}
                   </div>
-                  <Button variant="outline" disabled>
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filtros
-                  </Button>
-                </div>
+                ) : (
+                  riskBreakdown.map((item) => (
+                    <div key={item.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {item.label}
+                        </span>
+                        <span
+                          className={`font-semibold tabular-nums ${item.textColor}`}
+                        >
+                          {fmtPct(item.value)}
+                        </span>
+                      </div>
+                      <Progress
+                        value={(item.value ?? 0) * 100}
+                        className="h-2"
+                      />
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
-            {/* Risk List - FEATURE FUTURA */}
+            {/* Desempenho por assessoria */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Info className="w-5 h-5 text-[#378ADD]" />
-                  Contratos por Nível de Risco
+                <CardTitle className="text-base">
+                  Desempenho por Assessoria
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <AlertTriangle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="font-semibold text-foreground mb-2">
-                    Funcionalidade em desenvolvimento
-                  </h3>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-                    A listagem detalhada de contratos por risco será
-                    disponibilizada em breve. Por enquanto, utilize os KPIs
-                    acima para análise macro.
-                  </p>
-                  <Button variant="outline" size="sm">
-                    Ver documentação da API
-                  </Button>
-                </div>
+                {agLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4].map((i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : !agencies?.length ? (
+                  <p className="text-sm text-muted-foreground">Sem dados</p>
+                ) : (
+                  <div className="space-y-3">
+                    {[...agencies]
+                      .sort((a, b) => b.taxa_sucesso - a.taxa_sucesso)
+                      .map((agency) => (
+                        <div
+                          key={agency.nome_assessoria}
+                          className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium truncate">
+                                {agency.nome_assessoria}
+                              </span>
+                              <span className="text-sm font-semibold text-emerald-500 tabular-nums ml-2">
+                                {fmtPct(agency.taxa_sucesso)}
+                              </span>
+                            </div>
+                            <Progress
+                              value={(agency.taxa_sucesso ?? 0) * 100}
+                              className="h-1.5"
+                            />
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs text-muted-foreground">
+                              score {agency.score_medio?.toFixed(1) ?? "—"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {(agency.casos ?? 0).toLocaleString("pt-BR")}{" "}
+                              casos
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>

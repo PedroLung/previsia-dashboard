@@ -1,6 +1,9 @@
+// components/layout/dashboard/header.tsx
 "use client";
 
+import { useCurrentUser } from "@/hooks/use-previsia";
 import { useAuth } from "@/contexts/auth-context";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,10 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bell, LogOut, User, Menu, Brain } from "lucide-react";
+import { LogOut, Menu, Brain } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -33,23 +35,28 @@ const navigation = [
   { name: "Ajuda", href: "/dashboard/help", icon: HelpCircle },
 ];
 
+function getInitials(name: string) {
+  if (!name) return "U";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export function DashboardHeader() {
-  const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const { data: me } = useCurrentUser(); // SWR com cache — sem useEffect manual
+  const { logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const displayName = me?.full_name ?? "Usuário";
+  const displayEmail = me?.email ?? "";
 
   const handleLogout = () => {
     logout();
-    router.push("/");
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    router.push("/login");
   };
 
   return (
@@ -74,30 +81,27 @@ export function DashboardHeader() {
               </Link>
             </div>
             <nav className="p-4 space-y-1">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-sidebar-accent text-sidebar-primary"
-                        : "text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                    )}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {item.name}
-                  </Link>
-                );
-              })}
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
+                    pathname === item.href
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                  )}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {item.name}
+                </Link>
+              ))}
             </nav>
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Page Title */}
+      {/* Desktop title */}
       <div className="hidden lg:block">
         <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
@@ -105,7 +109,7 @@ export function DashboardHeader() {
         </p>
       </div>
 
-      {/* Mobile Logo */}
+      {/* Mobile logo */}
       <div className="lg:hidden flex items-center gap-2">
         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
           <Brain className="w-5 h-5 text-primary-foreground" />
@@ -113,52 +117,35 @@ export function DashboardHeader() {
         <span className="font-semibold">Previsia</span>
       </div>
 
-      {/* Right Side */}
-      <div className="flex items-center gap-2">
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
-        </Button>
-
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  {user?.full_name ? getInitials(user.full_name) : "U"}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden md:block text-sm font-medium max-w-32 truncate">
-                {user?.full_name || "Usuário"}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-56 bg-card border-border"
+      {/* User Menu */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="flex items-center gap-2 px-2">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                {getInitials(displayName)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden md:block text-sm font-medium max-w-32 truncate">
+              {displayName}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56 bg-card border-border">
+          <div className="px-3 py-2">
+            <p className="text-sm font-medium">{displayName}</p>
+            <p className="text-xs text-muted-foreground">{displayEmail}</p>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleLogout}
+            className="text-destructive cursor-pointer"
           >
-            <div className="px-3 py-2">
-              <p className="text-sm font-medium">{user?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{user?.email}</p>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="w-4 h-4 mr-2" />
-              Meu Perfil
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="text-destructive"
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <LogOut className="w-4 h-4 mr-2" />
+            Sair
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }

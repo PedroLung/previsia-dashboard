@@ -1,3 +1,4 @@
+// app/(auth)/register/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -19,9 +20,12 @@ import {
   Sparkles,
   ShieldCheck,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://previsia-api.2ai3ui4gvmwq.us-south.codeengine.appdomain.cloud";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -100,20 +104,30 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/auth/register`, {
+      console.log("🔐 Tentando registro via proxy:", { email: form.email });
+
+      // ✅ USA O PROXY PARA EVITAR CORS
+      const res = await fetch("/api/proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: form.full_name.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
+          path: "/auth/register",
+          body: {
+            full_name: form.full_name.trim(),
+            email: form.email.trim().toLowerCase(),
+            password: form.password,
+          },
+          method: "POST",
         }),
       });
+
+      console.log("📡 Resposta do proxy:", res.status);
 
       if (res.status === 409) {
         toast.error("E-mail já cadastrado", {
           description: "Este e-mail já possui uma conta. Tente fazer login.",
           duration: 5000,
+          icon: <AlertCircle className="w-4 h-4" />,
           action: {
             label: "Ir para login",
             onClick: () => router.push("/login"),
@@ -124,10 +138,20 @@ export default function RegisterPage() {
       }
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        let errorDetail = "Erro desconhecido";
+        try {
+          const errorData = await res.json();
+          errorDetail =
+            errorData?.detail ||
+            errorData?.message ||
+            errorData?.error ||
+            errorDetail;
+        } catch {
+          errorDetail = await res.text().catch(() => errorDetail);
+        }
         toast.error("Erro ao criar conta", {
-          description: data?.detail ?? "Tente novamente em instantes.",
-          duration: 4000,
+          description: errorDetail,
+          duration: 6000,
         });
         return;
       }
@@ -137,11 +161,24 @@ export default function RegisterPage() {
         duration: 4000,
       });
       setSuccess(true);
-    } catch {
-      toast.error("Erro de conexão", {
-        description: "Verifique sua internet e tente novamente.",
-        duration: 4000,
-      });
+    } catch (error: any) {
+      console.error("💥 Erro no registro:", error);
+
+      if (error.message?.includes("Failed to fetch")) {
+        toast.error("🌐 Não foi possível conectar à API", {
+          description: "Verifique sua conexão ou se a API está online.",
+          duration: 6000,
+          action: {
+            label: "Testar API",
+            onClick: () => window.open(`${API_URL}/health`, "_blank"),
+          },
+        });
+      } else {
+        toast.error("⚠️ Algo deu errado", {
+          description: error.message || "Erro inesperado. Tente novamente.",
+          duration: 5000,
+        });
+      }
     } finally {
       setLoading(false);
     }

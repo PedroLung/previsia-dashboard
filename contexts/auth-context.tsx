@@ -1,3 +1,4 @@
+// contexts/auth-context.tsx
 "use client";
 
 import {
@@ -24,6 +25,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Salva o token tanto no localStorage quanto no cookie httpOnly (lido pelo proxy)
+async function persistToken(token: string) {
+  localStorage.setItem("previsia_token", token);
+  await fetch("/api/auth/set-cookie", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+}
+
+// Remove de ambos os lugares
+async function clearToken() {
+  localStorage.removeItem("previsia_token");
+  await fetch("/api/auth/logout", { method: "POST" });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,10 +50,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem("previsia_token");
       if (token) {
         try {
+          // Garante que o cookie existe (caso tenha expirado o cookie mas não o localStorage)
+          await fetch("/api/auth/set-cookie", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          });
           const userData = await api.getMe();
           setUser(userData);
         } catch {
-          localStorage.removeItem("previsia_token");
+          // Token inválido — limpa tudo
+          await clearToken();
         }
       }
       setIsLoading(false);
@@ -45,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await api.login(email, password);
+    const { access_token } = await api.login(email, password);
+    await persistToken(access_token);
     const userData = await api.getMe();
     setUser(userData);
   };
@@ -60,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    api.logout();
+    clearToken(); // fire-and-forget tá ok aqui
     setUser(null);
   };
 
