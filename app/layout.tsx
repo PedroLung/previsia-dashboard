@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
+// app/layout.tsx
+import { Providers } from "./providers";
+import { Toaster } from "sonner";
 import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "Previsia",
-  description: "Inteligência preditiva para consórcios",
-};
 
 export default function RootLayout({
   children,
@@ -13,7 +10,22 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="dark">
-      <body>{children}</body>
+      <body className="bg-[#080E1A] text-[#E8F1FB] antialiased">
+        <Providers>{children}</Providers>
+        <Toaster
+          richColors
+          position="top-right"
+          theme="dark"
+          duration={4000}
+          toastOptions={{
+            style: {
+              background: "#0C1828",
+              border: "1px solid #152540",
+              color: "#E8F1FB",
+            },
+          }}
+        />
+      </body>
     </html>
   );
 }

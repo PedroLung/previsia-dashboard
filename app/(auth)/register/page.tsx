@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   Eye,
   EyeOff,
@@ -18,7 +19,6 @@ import {
   Sparkles,
   ShieldCheck,
   Zap,
-  AlertCircle,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -48,7 +48,6 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
 
   const [form, setForm] = useState({
@@ -77,15 +76,27 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (step === 1) {
-      if (!step1Valid) return;
+      if (!step1Valid) {
+        toast.error("Campos incompletos", {
+          description: "Preencha nome e e-mail válidos para continuar.",
+          duration: 4000,
+        });
+        return;
+      }
       setStep(2);
       return;
     }
 
-    if (!step2Valid) return;
+    if (!step2Valid) {
+      toast.error("Senha inválida", {
+        description: "Verifique se sua senha atende todos os requisitos.",
+        duration: 4000,
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -100,20 +111,37 @@ export default function RegisterPage() {
       });
 
       if (res.status === 409) {
-        setError("Este e-mail já está cadastrado.");
+        toast.error("E-mail já cadastrado", {
+          description: "Este e-mail já possui uma conta. Tente fazer login.",
+          duration: 5000,
+          action: {
+            label: "Ir para login",
+            onClick: () => router.push("/login"),
+          },
+        });
         setStep(1);
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.detail ?? "Erro ao criar conta. Tente novamente.");
+        toast.error("Erro ao criar conta", {
+          description: data?.detail ?? "Tente novamente em instantes.",
+          duration: 4000,
+        });
         return;
       }
 
+      toast.success("Conta criada com sucesso! 🎉", {
+        description: "Faça login para acessar a plataforma.",
+        duration: 4000,
+      });
       setSuccess(true);
     } catch {
-      setError("Não foi possível conectar ao servidor. Verifique sua conexão.");
+      toast.error("Erro de conexão", {
+        description: "Verifique sua internet e tente novamente.",
+        duration: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -231,21 +259,6 @@ export default function RegisterPage() {
                 : "Escolha uma senha segura para proteger sua conta."}
             </p>
           </motion.div>
-
-          {/* Error banner */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                className="flex items-center gap-3 bg-[#E24B4A]/10 border border-[#E24B4A]/30 rounded-xl px-4 py-3"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-              >
-                <AlertCircle className="w-4 h-4 text-[#E24B4A] flex-shrink-0" />
-                <p className="text-sm text-[#E24B4A]">{error}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Form */}
           <AnimatePresence mode="wait">
@@ -407,7 +420,6 @@ export default function RegisterPage() {
                     type="button"
                     onClick={() => {
                       setStep(1);
-                      setError(null);
                     }}
                     variant="outline"
                     className="flex-1 h-11 bg-transparent border-[#152540] text-[#5A7A94] hover:bg-[#0E1E32] hover:text-[#E8F1FB] hover:border-[#1A3050] rounded-xl"

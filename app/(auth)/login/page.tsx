@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   Eye,
   EyeOff,
@@ -16,7 +17,6 @@ import {
   TrendingUp,
   BarChart2,
   Shield,
-  AlertCircle,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -36,12 +36,10 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setLoading(true);
 
     try {
@@ -52,23 +50,37 @@ export default function LoginPage() {
       });
 
       if (res.status === 401) {
-        setError("E-mail ou senha incorretos.");
+        toast.error("E-mail ou senha incorretos", {
+          description: "Verifique suas credenciais e tente novamente.",
+          duration: 4000,
+        });
         return;
       }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data?.detail ?? "Erro ao fazer login. Tente novamente.");
+        toast.error("Erro ao fazer login", {
+          description: data?.detail ?? "Tente novamente em instantes.",
+          duration: 4000,
+        });
         return;
       }
 
       const data = await res.json();
-      // Salva o token — o middleware vai ler via cookie (next-auth)
-      // Por ora salva no localStorage até integrar next-auth completo
       localStorage.setItem("previsia_token", data.access_token);
-      router.push("/overview");
+
+      toast.success("Bem-vindo de volta! 👋", {
+        description: "Redirecionando para seu dashboard...",
+        duration: 3000,
+      });
+
+      // Pequeno delay para o toast aparecer antes do redirect
+      setTimeout(() => router.push("/overview"), 800);
     } catch {
-      setError("Não foi possível conectar ao servidor. Verifique sua conexão.");
+      toast.error("Erro de conexão", {
+        description: "Verifique sua internet e tente novamente.",
+        duration: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -147,21 +159,6 @@ export default function LoginPage() {
               da sua carteira.
             </p>
           </motion.div>
-
-          {/* Error banner */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                className="flex items-center gap-3 bg-[#E24B4A]/10 border border-[#E24B4A]/30 rounded-xl px-4 py-3"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-              >
-                <AlertCircle className="w-4 h-4 text-[#E24B4A] flex-shrink-0" />
-                <p className="text-sm text-[#E24B4A]">{error}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Form */}
           <motion.form
