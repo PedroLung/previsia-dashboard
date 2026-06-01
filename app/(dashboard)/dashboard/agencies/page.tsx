@@ -12,12 +12,15 @@ import { Building2, TrendingUp, Users, Award } from "lucide-react";
 export default function AgenciesPage() {
   const { data: agencies, error, isLoading } = useAgencies();
 
-  const totalContratos =
-    agencies?.reduce((s, a) => s + a.total_contratos, 0) ?? 0;
-  const totalRecuperado =
-    agencies?.reduce((s, a) => s + a.valor_recuperado, 0) ?? 0;
-  const mediaRecuperacao = agencies?.length
-    ? agencies.reduce((s, a) => s + a.taxa_recuperacao, 0) / agencies.length
+  // Cálculos adaptados para os novos campos da API
+  const totalCasos = agencies?.reduce((s, a) => s + (a.casos ?? 0), 0) ?? 0;
+
+  const mediaSucesso = agencies?.length
+    ? agencies.reduce((s, a) => s + (a.taxa_sucesso ?? 0), 0) / agencies.length
+    : 0;
+
+  const mediaScore = agencies?.length
+    ? agencies.reduce((s, a) => s + (a.score_medio ?? 0), 0) / agencies.length
     : 0;
 
   if (error) {
@@ -73,25 +76,25 @@ export default function AgenciesPage() {
                   icon: Users,
                   color: "text-emerald-500",
                   bg: "bg-emerald-500/10",
-                  label: "Contratos",
-                  value: isLoading ? null : totalContratos,
+                  label: "Total de Casos",
+                  value: isLoading ? null : totalCasos,
                   fmt: fmtNum,
                 },
                 {
                   icon: TrendingUp,
                   color: "text-amber-500",
                   bg: "bg-amber-500/10",
-                  label: "Média Recuperação",
-                  value: isLoading ? null : mediaRecuperacao,
+                  label: "Média de Sucesso",
+                  value: isLoading ? null : mediaSucesso,
                   fmt: fmtPct,
                 },
                 {
                   icon: Award,
                   color: "text-violet-400",
                   bg: "bg-violet-400/10",
-                  label: "Total Recuperado",
-                  value: isLoading ? null : totalRecuperado,
-                  fmt: fmtBRL,
+                  label: "Score Médio",
+                  value: isLoading ? null : mediaScore,
+                  fmt: (v: number) => v.toFixed(1),
                 },
               ].map((item) => (
                 <Card key={item.label}>

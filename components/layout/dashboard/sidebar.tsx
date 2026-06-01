@@ -18,6 +18,7 @@ const navigation = [
   { name: "Análise de Risco", href: "/dashboard/risk", icon: BarChart3 },
   { name: "Assistente IA", href: "/dashboard/assistant", icon: MessageSquare },
   { name: "Assessorias", href: "/dashboard/agencies", icon: Users },
+  { name: "Simulador", href: "/dashboard/predictor", icon: Brain },
 ];
 
 const bottomNav = [

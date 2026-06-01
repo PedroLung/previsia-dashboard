@@ -1,8 +1,7 @@
-// components/layout/dashboard/ai-assistant.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { askAssistant } from "@/hooks/use-previsia";
+import { askAssistant, type AskResponse } from "@/hooks/use-previsia";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,8 @@ interface Message {
 
 const SUGGESTIONS = [
   "Quais clientes têm maior risco?",
-  "Quanto recuperamos este mês?",
-  "Qual assessoria performa melhor?",
+  "Qual assessoria tem a melhor taxa de sucesso?",
+  "Qual o total inadimplente em aberto?",
 ];
 
 export function AIAssistant() {
@@ -27,7 +26,6 @@ export function AIAssistant() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll quando nova mensagem chega
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
@@ -41,21 +39,26 @@ export function AIAssistant() {
     setLoading(true);
 
     try {
-      const res = await askAssistant(q);
+      const res: AskResponse = await askAssistant(q);
 
-      if (!res.answer?.trim())
+      if (!res.answer_pt?.trim()) {
         throw new Error("A API retornou uma resposta vazia");
+      }
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: res.answer, sql: res.sql },
+        {
+          role: "assistant",
+          content: res.answer_pt,
+          sql: res.sql_generated,
+        },
       ]);
     } catch (err: any) {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: err.message || "Ocorreu um erro. Tente novamente.",
+          content: err.message || "Ocorreu um erro ao processar sua pergunta.",
         },
       ]);
     } finally {

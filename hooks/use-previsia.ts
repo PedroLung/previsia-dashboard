@@ -1,43 +1,57 @@
-// hooks/use-previsia.ts
 import useSWR from "swr";
 
-// ─── Tipos — campos reais confirmados via Network tab ─────────────────────────
+// ─── Tipos 100% alinhados com o Swagger/OpenAPI ──────────────────────────────
 
 export interface PortfolioKPIs {
   total_contratos: number;
   total_inadimplente_brl: number;
   score_risco_medio: number;
-  taxa_acordo: number; // ex: 0.3407 → 34.07%
+  taxa_acordo: number;
   taxa_insucesso: number;
   taxa_em_aberto: number;
 }
 
-export interface Agency {
+export interface AgencyPerf {
   nome_assessoria: string;
   casos: number;
-  taxa_sucesso: number; // ex: 0.7044 → 70.44%
+  taxa_sucesso: number;
   score_medio: number;
 }
 
-export interface CurrentUser {
-  id: string;
+export interface UserOut {
+  id: number; // Swagger define como integer
   email: string;
-  full_name: string;
+  full_name: string | null;
   role: string;
+  created_at: string | null;
 }
 
-export interface PortfolioSummaryResponse {
-  summary_pt: string;
-  kpis: {
-    total_contratos: number;
-    taxa_recuperacao: number;
-    valor_inadimplente: number;
-  };
-}
+// O Swagger diz que retorna "string", mas na prática pode vir formatado.
+// Deixamos flexível para não quebrar a UI.
+export type PortfolioSummaryResponse =
+  | string
+  | {
+      summary_pt: string;
+      kpis?: {
+        total_contratos: number;
+        taxa_recuperacao: number;
+        valor_inadimplente: number;
+      };
+    };
 
+// Alinhado com o JSON REAL que sua API retornou (ignorando o "string" genérico do Swagger)
 export interface AskResponse {
-  answer: string;
-  sql: string;
+  question: string;
+  sql_generated: string;
+  validation_error: string;
+  row_count: number;
+  rows_preview: any[];
+  answer_pt: string;
+}
+
+export interface SuccessPrediction {
+  score: number;
+  label: string;
 }
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -54,7 +68,13 @@ function handleUnauthorized() {
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 const get = async (path: string) => {
-  const res = await fetch(`/api/proxy?path=${path}`);
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("previsia_token")
+      : null;
+  const res = await fetch(`/api/proxy?path=${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (res.status === 401) {
     handleUnauthorized();
     throw new Error("Sessão expirada");
@@ -67,9 +87,16 @@ const get = async (path: string) => {
 };
 
 const post = async (path: string, body: unknown = {}) => {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("previsia_token")
+      : null;
   const res = await fetch("/api/proxy", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ path, method: "POST", body }),
   });
   if (res.status === 401) {
@@ -83,7 +110,7 @@ const post = async (path: string, body: unknown = {}) => {
   return res.json();
 };
 
-// ─── Hooks ────────────────────────────────────────────────────────────────────
+// ─── Hooks SWR ────────────────────────────────────────────────────────────────
 
 export function usePortfolio() {
   return useSWR<PortfolioKPIs>("portfolio", () => get("/analytics/portfolio"), {
@@ -94,14 +121,14 @@ export function usePortfolio() {
 }
 
 export function useAgencies() {
-  return useSWR<Agency[]>("agencies", () => get("/analytics/agencies"), {
+  return useSWR<AgencyPerf[]>("agencies", () => get("/analytics/agencies"), {
     refreshInterval: 60_000,
     shouldRetryOnError: false,
   });
 }
 
 export function useCurrentUser() {
-  return useSWR<CurrentUser>("me", () => get("/me"), {
+  return useSWR<UserOut>("me", () => get("/me"), {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
   });
@@ -117,8 +144,14 @@ export async function askAssistant(question: string): Promise<AskResponse> {
   return post("/insights/ask", { question });
 }
 
-export async function explainContract(id: string) {
+export async function explainContract(id: string): Promise<string> {
   return post(`/insights/explain/${id}`);
+}
+
+export async function predictCollectionSuccess(
+  features: any,
+): Promise<SuccessPrediction> {
+  return post("/predict/collection-success", features);
 }
 
 // ─── Formatadores ─────────────────────────────────────────────────────────────
@@ -144,4 +177,21 @@ export function fmtPct(value: number | undefined | null): string {
 export function fmtNum(value: number | undefined | null): string {
   if (value == null || isNaN(value)) return "—";
   return new Intl.NumberFormat("pt-BR").format(value);
+}
+
+export interface ContractFeatures {
+  score_risco: number;
+  dias_atraso_inicial?: number | null;
+  valor_inadimplente: number;
+  parcelas_total?: number;
+  parcelas_pagas?: number;
+  total_pago?: number;
+  taxa_adimplencia?: number;
+  media_dias_atraso?: number;
+  velocidade_pagamento?: number;
+  faixa_valor: string;
+  dias_atraso_bucket: string;
+  regiao: string;
+  nome_assessoria: string;
+  metodo_predominante?: string;
 }
