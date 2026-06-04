@@ -1,6 +1,5 @@
 // API Client para Previsia
-const API_BASE_URL =
-  "https://previsia-api.2ai3ui4gvmwq.us-south.codeengine.appdomain.cloud";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Types
 export interface User {
