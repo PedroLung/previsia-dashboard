@@ -47,6 +47,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log("🔐 Login - Fazendo requisição...");
       const res = await fetch("/api/proxy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,6 +60,8 @@ export default function LoginPage() {
           method: "POST",
         }),
       });
+
+      console.log("🔐 Login - Status:", res.status);
 
       if (res.status === 401) {
         toast.error("🔒 Acesso negado", {
@@ -78,17 +81,35 @@ export default function LoginPage() {
       }
 
       const data = await res.json();
+      console.log("🔐 Login - Dados recebidos:", data);
 
       if (!data.access_token) {
         throw new Error("Token não recebido");
       }
 
-      // ✅ Salva token em cookie HTTP-only via API Route
+      // ✅ Salva token no localStorage
+      try {
+        localStorage.setItem("previsia_token", data.access_token);
+        console.log("✅ Login - Token salvo no localStorage");
+        console.log(
+          "✅ Login - Token verificado:",
+          localStorage.getItem("previsia_token") ? "OK" : "FALHOU",
+        );
+      } catch (storageError) {
+        console.error(
+          "❌ Login - Erro ao salvar no localStorage:",
+          storageError,
+        );
+      }
+
+      // ✅ Salva token em cookie HTTP-only
       const cookieRes = await fetch("/api/auth/set-cookie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: data.access_token }),
       });
+
+      console.log("🍪 Login - Cookie salvo:", cookieRes.ok ? "OK" : "FALHOU");
 
       if (!cookieRes.ok) throw new Error("Erro ao salvar token");
 

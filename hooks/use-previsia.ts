@@ -1,6 +1,7 @@
+// hooks/use-previsia.ts
 import useSWR from "swr";
 
-// ─── Tipos 100% alinhados com o Swagger/OpenAPI ──────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 export interface PortfolioKPIs {
   total_contratos: number;
@@ -19,15 +20,13 @@ export interface AgencyPerf {
 }
 
 export interface UserOut {
-  id: number; // Swagger define como integer
+  id: number;
   email: string;
   full_name: string | null;
   role: string;
   created_at: string | null;
 }
 
-// O Swagger diz que retorna "string", mas na prática pode vir formatado.
-// Deixamos flexível para não quebrar a UI.
 export type PortfolioSummaryResponse =
   | string
   | {
@@ -39,7 +38,6 @@ export type PortfolioSummaryResponse =
       };
     };
 
-// Alinhado com o JSON REAL que sua API retornou (ignorando o "string" genérico do Swagger)
 export interface AskResponse {
   question: string;
   sql_generated: string;
@@ -54,83 +52,123 @@ export interface SuccessPrediction {
   label: string;
 }
 
-// ─── Auth helper ──────────────────────────────────────────────────────────────
+export interface ContractFeatures {
+  score_risco: number;
+  dias_atraso_inicial?: number | null;
+  valor_inadimplente: number;
+  parcelas_total?: number;
+  parcelas_pagas?: number;
+  total_pago?: number;
+  taxa_adimplencia?: number;
+  media_dias_atraso?: number;
+  velocidade_pagamento?: number;
+  faixa_valor: string;
+  dias_atraso_bucket: string;
+  regiao: string;
+  nome_assessoria: string;
+  metodo_predominante?: string;
+}
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("previsia_token");
+}
 
 function handleUnauthorized() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("previsia_token");
-    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-      window.location.href = "/login";
-    });
+    document.cookie = "previsia_token=; path=/; max-age=0";
+    window.location.replace("/login");
   }
 }
 
-// ─── Fetchers ─────────────────────────────────────────────────────────────────
-
 const get = async (path: string) => {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("previsia_token")
-      : null;
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("Não autenticado");
+  }
+
   const res = await fetch(`/api/proxy?path=${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: { Authorization: `Bearer ${token}` },
   });
+
   if (res.status === 401) {
     handleUnauthorized();
     throw new Error("Sessão expirada");
   }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || err.error || `Erro ${res.status}`);
   }
+
   return res.json();
 };
 
 const post = async (path: string, body: unknown = {}) => {
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("previsia_token")
-      : null;
+  const token = getToken();
+
+  if (!token) {
+    throw new Error("Não autenticado");
+  }
+
   const res = await fetch("/api/proxy", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ path, method: "POST", body }),
   });
+
   if (res.status === 401) {
     handleUnauthorized();
     throw new Error("Sessão expirada");
   }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail || err.error || `Erro ${res.status}`);
   }
+
   return res.json();
 };
 
-// ─── Hooks SWR ────────────────────────────────────────────────────────────────
-
+// HOOKS OTIMIZADOS
 export function usePortfolio() {
-  return useSWR<PortfolioKPIs>("portfolio", () => get("/analytics/portfolio"), {
-    refreshInterval: 60_000,
-    revalidateOnFocus: true,
-    shouldRetryOnError: false,
-  });
+  return useSWR<PortfolioKPIs>(
+    getToken() ? "portfolio" : null,
+    () => get("/analytics/portfolio"),
+    {
+      refreshInterval: 0, // ← Desliga refresh automático (só atualiza quando necessário)
+      revalidateOnFocus: false, // ← Não recarrega quando muda de aba
+      revalidateOnReconnect: true, // ← Recarrega só quando reconecta
+      shouldRetryOnError: false,
+      dedupingInterval: 60000, // ← Evita requests duplicadas em 1 minuto
+    },
+  );
 }
 
 export function useAgencies() {
-  return useSWR<AgencyPerf[]>("agencies", () => get("/analytics/agencies"), {
-    refreshInterval: 60_000,
-    shouldRetryOnError: false,
-  });
+  return useSWR<AgencyPerf[]>(
+    getToken() ? "agencies" : null,
+    () => get("/analytics/agencies"),
+    {
+      refreshInterval: 0,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      shouldRetryOnError: false,
+      dedupingInterval: 60000,
+    },
+  );
 }
 
 export function useCurrentUser() {
-  return useSWR<UserOut>("me", () => get("/me"), {
+  return useSWR<UserOut>(getToken() ? "me" : null, () => get("/me"), {
     revalidateOnFocus: false,
     shouldRetryOnError: false,
+    dedupingInterval: 300000, // ← 5 minutos de cache
   });
 }
 
@@ -177,21 +215,4 @@ export function fmtPct(value: number | undefined | null): string {
 export function fmtNum(value: number | undefined | null): string {
   if (value == null || isNaN(value)) return "—";
   return new Intl.NumberFormat("pt-BR").format(value);
-}
-
-export interface ContractFeatures {
-  score_risco: number;
-  dias_atraso_inicial?: number | null;
-  valor_inadimplente: number;
-  parcelas_total?: number;
-  parcelas_pagas?: number;
-  total_pago?: number;
-  taxa_adimplencia?: number;
-  media_dias_atraso?: number;
-  velocidade_pagamento?: number;
-  faixa_valor: string;
-  dias_atraso_bucket: string;
-  regiao: string;
-  nome_assessoria: string;
-  metodo_predominante?: string;
 }

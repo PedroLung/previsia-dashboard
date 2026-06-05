@@ -1,17 +1,13 @@
-// app/api/proxy/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-const API_BASE =
-  "https://previsia-api.2ai3ui4gvmwq.us-south.codeengine.appdomain.cloud";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 export async function POST(request: Request) {
   try {
     const { path, body, method = "POST" } = await request.json();
     const cookieStore = await cookies();
-    const token =
-      cookieStore.get("previsia_token")?.value ||
-      cookieStore.get("previsia_token")?.value;
+    const token = cookieStore.get("previsia_token")?.value;
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -27,7 +23,6 @@ export async function POST(request: Request) {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    // Verifica se é JSON
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
       const data = await response.json();

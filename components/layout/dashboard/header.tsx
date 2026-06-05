@@ -46,9 +46,8 @@ function getInitials(name: string) {
 }
 
 export function DashboardHeader() {
-  const { data: me } = useCurrentUser(); // SWR com cache — sem useEffect manual
+  const { data: me } = useCurrentUser();
   const { logout } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   const displayName = me?.full_name ?? "Usuário";
@@ -56,7 +55,6 @@ export function DashboardHeader() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
   };
 
   return (
